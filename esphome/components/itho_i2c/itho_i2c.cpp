@@ -614,6 +614,36 @@ void IthoI2CComponent::query_status() {
               this->temperature_sensor_->publish_state(signed_value);
             }
           }
+        } else if (i == 5) {
+          // Startup counter (index 5)
+          ESP_LOGI(TAG, "  [5] Startup counter: %d", signed_value);
+          if (this->startup_counter_sensor_ != nullptr) {
+            this->startup_counter_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 6) {
+          // Total operation hours (index 6)
+          ESP_LOGI(TAG, "  [6] Total operation: %d hours", signed_value);
+          if (this->total_operation_sensor_ != nullptr) {
+            this->total_operation_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 7) {
+          // Highest CO2 concentration (index 7) - usually 0 until a peak is recorded
+          ESP_LOGI(TAG, "  [7] Highest CO2: %d ppm", signed_value);
+          if (this->highest_co2_sensor_ != nullptr && signed_value >= 0 && signed_value <= 5000) {
+            this->highest_co2_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 8) {
+          // CO2 velocity / Current CO2 concentration (index 8)
+          ESP_LOGI(TAG, "  [8] CO2: %d ppm", signed_value);
+          if (this->co2_sensor_ != nullptr && signed_value >= 0 && signed_value <= 5000) {
+            this->co2_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 9) {
+          // Valve position (index 9)
+          ESP_LOGI(TAG, "  [9] Valve: %d", signed_value);
+          if (this->valve_sensor_ != nullptr) {
+            this->valve_sensor_->publish_state(signed_value);
+          }
         } else {
           // Log other values at debug level
           if (desc.is_float) {

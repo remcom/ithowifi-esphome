@@ -108,6 +108,28 @@ itho_i2c:
     name: "${friendly_name} Selected Mode Text"
     id: itho_selected_mode_text
 
+  # CO2 sensor (current value)
+  co2:
+    name: "${friendly_name} CO2"
+    id: itho_co2
+
+  # Additional status sensors (optional)
+  startup_counter:
+    name: "${friendly_name} Startup Counter"
+    id: itho_startup_counter
+
+  total_operation:
+    name: "${friendly_name} Total Operation"
+    id: itho_total_operation
+
+  highest_co2:
+    name: "${friendly_name} Highest CO2"
+    id: itho_highest_co2
+
+  valve:
+    name: "${friendly_name} Valve Position"
+    id: itho_valve
+
   device_type:
     name: "${friendly_name} Device Type"
     id: itho_type
