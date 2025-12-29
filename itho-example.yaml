@@ -63,6 +63,20 @@ network:
 
 captive_portal:
 
+# SPI bus for CC1101 radio
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+# CC1101 Radio for RF remote control
+# This enables receiving and sending RF commands from/to Itho remotes
+cc1101:
+  cs_pin: GPIO5
+  gdo0_pin: GPIO4
+  # Optional: Adjust frequency if needed (default is 868.299805 MHz for EU)
+  frequency: 868.299805MHz
+
 # Custom Itho I2C Bus (supports master and slave modes)
 # For CVE (original hardware):
 #   SDA: GPIO21
