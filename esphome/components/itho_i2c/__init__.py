@@ -17,12 +17,15 @@ MULTI_CONF = False
 AUTO_LOAD = ["sensor", "text_sensor"]
 
 CONF_FAN_SPEED = "fan_speed"
+CONF_FAN_SETPOINT = "fan_setpoint"
+CONF_FAN_SPEED_RPM = "fan_speed_rpm"
 CONF_DEVICE_TYPE = "device_type"
 CONF_REMOTE_ID = "remote_id"
 CONF_BUS_ID = "bus_id"
 CONF_SDA = "sda"
 CONF_SCL = "scl"
 CONF_FREQUENCY = "frequency"
+UNIT_RPM = "rpm"
 
 itho_i2c_ns = cg.esphome_ns.namespace("itho_i2c")
 IthoI2CBus = itho_i2c_ns.class_("IthoI2CBus", cg.Component)
@@ -61,6 +64,16 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
+            cv.Optional(CONF_FAN_SETPOINT): sensor.sensor_schema(
+                unit_of_measurement=UNIT_RPM,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_FAN_SPEED_RPM): sensor.sensor_schema(
+                unit_of_measurement=UNIT_RPM,
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
             cv.Optional(CONF_DEVICE_TYPE): text_sensor.text_sensor_schema(),
             cv.Optional(CONF_REMOTE_ID): cv.All(
                 cv.ensure_list(cv.hex_uint8_t), cv.Length(min=3, max=3)
@@ -90,6 +103,14 @@ async def to_code(config):
     if CONF_FAN_SPEED in config:
         sens = await sensor.new_sensor(config[CONF_FAN_SPEED])
         cg.add(var.set_fan_speed_sensor(sens))
+
+    if CONF_FAN_SETPOINT in config:
+        sens = await sensor.new_sensor(config[CONF_FAN_SETPOINT])
+        cg.add(var.set_fan_setpoint_sensor(sens))
+
+    if CONF_FAN_SPEED_RPM in config:
+        sens = await sensor.new_sensor(config[CONF_FAN_SPEED_RPM])
+        cg.add(var.set_fan_speed_rpm_sensor(sens))
 
     if CONF_DEVICE_TYPE in config:
         sens = await text_sensor.new_text_sensor(config[CONF_DEVICE_TYPE])

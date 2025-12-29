@@ -1,5 +1,5 @@
-[!CAUTION]
-Do not use. it will not work and is work in progress
+> [!CAUTION]
+> Do not use. it will not work and is work in progress
 
 # Itho I2C ESPHome Custom Component
 

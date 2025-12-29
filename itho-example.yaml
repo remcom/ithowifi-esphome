@@ -81,6 +81,14 @@ itho_i2c:
     name: "${friendly_name} Fan Speed"
     id: itho_speed
 
+  fan_setpoint:
+    name: "${friendly_name} Fan Setpoint"
+    id: itho_fan_setpoint
+
+  fan_speed_rpm:
+    name: "${friendly_name} Fan Speed RPM"
+    id: itho_fan_speed_rpm
+
   device_type:
     name: "${friendly_name} Device Type"
     id: itho_type
@@ -146,6 +154,12 @@ button:
     on_press:
       - lambda: |-
           id(itho_device).query_status();
+
+  - platform: template
+    name: "${friendly_name} Query Measurements"
+    on_press:
+      - lambda: |-
+          id(itho_device).query_measurements();
 
 # Text sensor for device info
 text_sensor:

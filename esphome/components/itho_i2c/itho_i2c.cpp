@@ -18,6 +18,21 @@ void IthoI2CComponent::setup() {
   this->set_timeout(1000, [this]() {
     this->query_device_type();
   });
+
+  // Query status format to understand data types (once at startup)
+  this->set_timeout(2000, [this]() {
+    this->query_status_format();
+  });
+
+  // Set up periodic status query (every 30 seconds)
+  // First query after status format is received
+  this->set_timeout(3000, [this]() {
+    this->query_status();
+  });
+
+  this->set_interval("status_query", 30000, [this]() {
+    this->query_status();
+  });
 }
 
 void IthoI2CComponent::loop() {
@@ -41,6 +56,45 @@ uint8_t IthoI2CComponent::calculate_checksum(const uint8_t *buf, size_t len) {
     sum += buf[i];
   }
   return 0 - sum;
+}
+
+// Data type helper functions (from original ithowifi)
+uint32_t IthoI2CComponent::get_divider_from_datatype(int8_t datatype) {
+  const uint32_t divider_table[] = {
+    1, 10, 100, 1000, 10000, 100000,
+    1000000, 10000000, 100000000,
+    1, 1,  // dividers index 9 and 10 should be 0.1 and 0.01
+    1, 1, 1, 256, 2
+  };
+  return divider_table[datatype & 0x0f];
+}
+
+uint8_t IthoI2CComponent::get_length_from_datatype(int8_t datatype) {
+  switch (datatype & 0x70) {
+    case 0x10:
+      return 2;
+    case 0x20:
+    case 0x70:
+      return 4;
+    default:
+      return 1;
+  }
+}
+
+bool IthoI2CComponent::get_signed_from_datatype(int8_t datatype) {
+  return datatype & 0x80;
+}
+
+int32_t IthoI2CComponent::cast_to_signed_int(uint32_t value, uint8_t length) {
+  // Sign extend based on the actual data length
+  if (length == 1) {
+    return (int8_t)value;
+  } else if (length == 2) {
+    return (int16_t)value;
+  } else if (length == 4) {
+    return (int32_t)value;
+  }
+  return value;
 }
 
 bool IthoI2CComponent::send_i2c_bytes(const uint8_t *buf, size_t len, bool release_master) {
@@ -245,12 +299,88 @@ void IthoI2CComponent::query_device_type() {
   }
 }
 
-void IthoI2CComponent::query_status() {
-  // Query status command from original ithowifi code
-  // Full command: {0x82, 0x80, 0x31, 0xD9, 0x04, 0x00, 0xF0}
-  uint8_t command[] = {I2C_ADDR_WRITE, 0x80, 0x31, 0xD9, 0x04, 0x00, 0xF0};
+void IthoI2CComponent::query_status_format() {
+  // Query status FORMAT command - 0x24 0x00
+  // Returns data type descriptors for each status value
+  // Full command: {0x82, 0x80, 0x24, 0x00, 0x04, 0x00, 0xD6}
+  uint8_t command[] = {I2C_ADDR_WRITE, 0x80, 0x24, 0x00, 0x04, 0x00, 0xD6};
 
-  ESP_LOGI(TAG, "Querying device status...");
+  ESP_LOGI(TAG, "Querying device status format (0x24 0x00)...");
+
+  if (this->bus_ == nullptr) {
+    ESP_LOGE(TAG, "I2C bus not configured");
+    return;
+  }
+
+  // Extract address and data from command
+  uint8_t address = command[0] >> 1;  // 0x82 >> 1 = 0x41
+  const uint8_t *data = &command[1];
+  size_t data_len = sizeof(command) - 1;
+
+  // Use combined write+receive to minimize timing gap
+  uint8_t response[64] = {0};
+  static const uint8_t I2C_SLAVE_ADDR = 0x40;
+
+  size_t len = this->bus_->write_query_and_receive(address, data, data_len,
+                                                     I2C_SLAVE_ADDR, response, sizeof(response), 200);
+
+  if (len > 0) {
+    ESP_LOGI(TAG, "Status format response received (%d bytes)", len);
+    ESP_LOGI(TAG, "Raw format data: %s", format_hex_pretty(response, len).c_str());
+
+    // Parse status format response
+    // Format: [addr][0x82][0xA4][0x00][type][count][datatype1][datatype2]...[checksum]
+    // Example: 80 82 A4 00 01 0C 80 10 10 10 00 10 20 10 10 00 92 92 29
+    if (len >= 7 && response[1] == 0x82 && response[2] == 0xA4 && response[3] == 0x00) {
+      uint8_t num_descriptors = response[5];
+      ESP_LOGI(TAG, "Status format: %d value descriptors", num_descriptors);
+
+      // Clear previous format
+      this->status_format_.clear();
+
+      // Parse each data type descriptor
+      for (uint8_t i = 0; i < num_descriptors && (6 + i) < (len - 1); i++) {
+        int8_t datatype = response[6 + i];
+
+        StatusDescriptor desc;
+        desc.length = this->get_length_from_datatype(datatype);
+        desc.divider = this->get_divider_from_datatype(datatype);
+        desc.is_signed = this->get_signed_from_datatype(datatype);
+        desc.is_float = (desc.divider != 1);
+
+        // Special case for legacy 0x5B datatype
+        if (datatype == 0x5B) {
+          desc.is_float = false;
+          desc.length = 2;
+          desc.is_signed = false;
+        }
+
+        this->status_format_.push_back(desc);
+
+        ESP_LOGD(TAG, "  Value %d: datatype=0x%02X, len=%d, div=%u, signed=%d, float=%d",
+                 i, datatype, desc.length, desc.divider, desc.is_signed, desc.is_float);
+      }
+
+      this->status_format_received_ = true;
+      ESP_LOGI(TAG, "Status format received successfully");
+    } else if (len >= 3) {
+      ESP_LOGW(TAG, "Unexpected format response header: %02X %02X %02X",
+               response[1], response[2], response[3]);
+    } else {
+      ESP_LOGW(TAG, "Status format response too short (%d bytes)", len);
+    }
+  } else {
+    ESP_LOGW(TAG, "No response received for status format query");
+  }
+}
+
+void IthoI2CComponent::query_status() {
+  // Query status VALUES command - 0x24 0x01
+  // This is the CORRECT command for CVE1B status (includes temp/humidity/rpm/etc)
+  // Full command: {0x82, 0x80, 0x24, 0x01, 0x04, 0x00, 0xD5}
+  uint8_t command[] = {I2C_ADDR_WRITE, 0x80, 0x24, 0x01, 0x04, 0x00, 0xD5};
+
+  ESP_LOGI(TAG, "Querying device status (0x24 0x01)...");
 
   if (this->bus_ == nullptr) {
     ESP_LOGE(TAG, "I2C bus not configured");
@@ -273,14 +403,123 @@ void IthoI2CComponent::query_status() {
     ESP_LOGD(TAG, "Status response received (%d bytes)", len);
     ESP_LOGI(TAG, "Raw status data: %s", format_hex_pretty(response, len).c_str());
 
-    // TODO: Parse actual status values
-    // The response format depends on the Itho device model
-    // Common fields might include:
-    // - Fan speed
-    // - Temperature
-    // - Humidity
-    // - Operating mode
-    // - Errors/warnings
+    // Parse status response - CVE1B format
+    // Format: [addr][0x82][0xA4][0x01][type][count][data...][checksum]
+    // Example: 80.82.A4.01.01.17.FF.03.A5.03.A7...
+    if (len >= 7 && response[1] == 0x82 && response[2] == 0xA4 && response[3] == 0x01) {
+      uint8_t num_values = response[5];  // 0x17 = 23 values
+
+      ESP_LOGI(TAG, "CVE1B Status: %d values received", num_values);
+
+      // Check if we have status format information
+      if (!this->status_format_received_ || this->status_format_.empty()) {
+        ESP_LOGW(TAG, "Status format not yet received, skipping detailed parsing");
+        return;
+      }
+
+      // CVE1B status labels (from original ithowifi):
+      // 0: Ventilation setpoint (%), 1: Fan setpoint (rpm), 2: Fan speed (rpm)
+      // 23: Internal humidity (%), 24: Internal temp (°C)
+      // 33: RelativeHumidity, 34: Temperature
+
+      size_t data_pos = 6;  // Data starts at byte 6
+
+      // Parse each value according to its descriptor
+      for (uint8_t i = 0; i < num_values && i < this->status_format_.size(); i++) {
+        const StatusDescriptor &desc = this->status_format_[i];
+
+        // Check we have enough bytes
+        if (data_pos + desc.length > len - 1) {
+          ESP_LOGW(TAG, "Not enough bytes for value %d (need %d, have %d)",
+                   i, desc.length, len - 1 - data_pos);
+          break;
+        }
+
+        // Read the raw value (big-endian)
+        uint32_t raw_value = 0;
+        for (uint8_t j = 0; j < desc.length; j++) {
+          raw_value |= response[data_pos + (desc.length - 1 - j)] << (j * 8);
+        }
+
+        // Convert to signed if needed
+        int32_t signed_value = raw_value;
+        if (desc.is_signed) {
+          signed_value = this->cast_to_signed_int(raw_value, desc.length);
+        }
+
+        // Convert to float if needed
+        float float_value = static_cast<float>(signed_value) / desc.divider;
+
+        // Log and publish specific values
+        if (i == 0) {
+          ESP_LOGI(TAG, "  [0] Ventilation setpoint: %d%%", signed_value);
+        } else if (i == 1) {
+          ESP_LOGI(TAG, "  [1] Fan setpoint: %d rpm", signed_value);
+          // Publish fan setpoint sensor
+          if (this->fan_setpoint_sensor_ != nullptr && signed_value > 0) {
+            this->fan_setpoint_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 2) {
+          ESP_LOGI(TAG, "  [2] Fan speed: %d rpm", signed_value);
+
+          // Publish fan speed RPM sensor
+          if (this->fan_speed_rpm_sensor_ != nullptr && signed_value > 0) {
+            this->fan_speed_rpm_sensor_->publish_state(signed_value);
+          }
+
+          // Publish fan speed percentage sensor
+          if (this->fan_speed_sensor_ != nullptr && signed_value > 0) {
+            // Convert RPM to percentage (assuming ~1200 RPM = 100%)
+            float speed_percent = (signed_value * 100.0f) / 1200.0f;
+            if (speed_percent > 100.0f) speed_percent = 100.0f;
+            this->fan_speed_sensor_->publish_state(speed_percent);
+          }
+        } else if (i == 10) {
+          // Humidity (index 10 for your device)
+          if (desc.is_float) {
+            ESP_LOGI(TAG, "  [10] Humidity: %.1f%%", float_value);
+            if (this->humidity_sensor_ != nullptr && float_value >= 0 && float_value <= 100) {
+              this->humidity_sensor_->publish_state(float_value);
+            }
+          } else {
+            ESP_LOGI(TAG, "  [10] Humidity: %d%%", signed_value);
+            if (this->humidity_sensor_ != nullptr && signed_value >= 0 && signed_value <= 100) {
+              this->humidity_sensor_->publish_state(signed_value);
+            }
+          }
+        } else if (i == 11) {
+          // Temperature (index 11 for your device)
+          if (desc.is_float) {
+            ESP_LOGI(TAG, "  [11] Temperature: %.1f°C", float_value);
+            if (this->temperature_sensor_ != nullptr && float_value > -50 && float_value < 100) {
+              this->temperature_sensor_->publish_state(float_value);
+            }
+          } else {
+            ESP_LOGI(TAG, "  [11] Temperature: %d°C", signed_value);
+            if (this->temperature_sensor_ != nullptr && signed_value > -50 && signed_value < 100) {
+              this->temperature_sensor_->publish_state(signed_value);
+            }
+          }
+        } else {
+          // Log other values at debug level
+          if (desc.is_float) {
+            ESP_LOGD(TAG, "  [%d] Value: %.2f (raw=0x%X)", i, float_value, raw_value);
+          } else {
+            ESP_LOGD(TAG, "  [%d] Value: %d (raw=0x%X)", i, signed_value, raw_value);
+          }
+        }
+
+        data_pos += desc.length;
+      }
+
+      ESP_LOGI(TAG, "Status parsing complete");
+
+    } else if (len >= 3) {
+      ESP_LOGW(TAG, "Unexpected response header: %02X %02X %02X",
+               response[1], response[2], response[3]);
+    } else {
+      ESP_LOGW(TAG, "Status response too short (%d bytes)", len);
+    }
   } else {
     ESP_LOGW(TAG, "No response received for status query");
   }
@@ -321,6 +560,56 @@ void IthoI2CComponent::query_counters() {
     // - Error counters
   } else {
     ESP_LOGW(TAG, "No response received for counters query");
+  }
+}
+
+void IthoI2CComponent::query_measurements() {
+  // Query measurements command - 0x12 query type
+  // This may return temperature, humidity, and other sensor values
+  // Full command: {0x82, 0x80, 0x12, 0xXX, 0x04, 0x00, checksum}
+  uint8_t command[] = {I2C_ADDR_WRITE, 0x80, 0x12, 0xA4, 0x04, 0x00, 0x00};
+
+  // Calculate checksum
+  command[6] = this->calculate_checksum(command, 6);
+
+  ESP_LOGI(TAG, "Querying device measurements...");
+
+  if (this->bus_ == nullptr) {
+    ESP_LOGE(TAG, "I2C bus not configured");
+    return;
+  }
+
+  // Extract address and data from command
+  uint8_t address = command[0] >> 1;  // 0x82 >> 1 = 0x41
+  const uint8_t *data = &command[1];
+  size_t data_len = sizeof(command) - 1;
+
+  // Use combined write+receive to minimize timing gap
+  uint8_t response[64] = {0};
+  static const uint8_t I2C_SLAVE_ADDR = 0x40;
+
+  size_t len = this->bus_->write_query_and_receive(address, data, data_len,
+                                                     I2C_SLAVE_ADDR, response, sizeof(response), 200);
+
+  if (len > 0) {
+    ESP_LOGD(TAG, "Measurements response received (%d bytes)", len);
+    ESP_LOGI(TAG, "Raw measurements data: %s", format_hex_pretty(response, len).c_str());
+
+    // Parse measurements response
+    if (len >= 10 && response[1] == 0x82) {
+      // Try to extract temperature and humidity
+      // Format may vary by device model
+
+      // Log all non-padding bytes for analysis
+      ESP_LOGI(TAG, "Analyzing measurement bytes:");
+      for (size_t i = 6; i < len - 1 && i < 20; i++) {
+        if (response[i] != 0x20 && response[i] != 0x00) {
+          ESP_LOGI(TAG, "  Byte %d: 0x%02X (%d)", i, response[i], response[i]);
+        }
+      }
+    }
+  } else {
+    ESP_LOGW(TAG, "No response received for measurements query");
   }
 }
 

@@ -5,6 +5,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/itho_i2c_bus/itho_i2c_bus.h"
+#include <vector>
 
 namespace esphome {
 namespace itho_i2c {
@@ -42,13 +43,17 @@ class IthoI2CComponent : public Component {
 
   // Device queries
   void query_device_type();
+  void query_status_format();
   void query_status();
   void query_counters();
+  void query_measurements();
 
   // Sensors
   void set_temperature_sensor(sensor::Sensor *sensor) { this->temperature_sensor_ = sensor; }
   void set_humidity_sensor(sensor::Sensor *sensor) { this->humidity_sensor_ = sensor; }
   void set_fan_speed_sensor(sensor::Sensor *sensor) { this->fan_speed_sensor_ = sensor; }
+  void set_fan_setpoint_sensor(sensor::Sensor *sensor) { this->fan_setpoint_sensor_ = sensor; }
+  void set_fan_speed_rpm_sensor(sensor::Sensor *sensor) { this->fan_speed_rpm_sensor_ = sensor; }
   void set_device_type_sensor(text_sensor::TextSensor *sensor) { this->device_type_sensor_ = sensor; }
 
   // Configuration
@@ -66,6 +71,12 @@ class IthoI2CComponent : public Component {
   size_t read_i2c_slave_response(uint8_t *data, size_t max_size);
   uint8_t calculate_checksum(const uint8_t *buf, size_t len);
 
+  // Data type helpers (from original ithowifi)
+  uint32_t get_divider_from_datatype(int8_t datatype);
+  uint8_t get_length_from_datatype(int8_t datatype);
+  bool get_signed_from_datatype(int8_t datatype);
+  int32_t cast_to_signed_int(uint32_t value, uint8_t length);
+
   // Custom I2C bus
   IthoI2CBus *bus_{nullptr};
 
@@ -78,6 +89,8 @@ class IthoI2CComponent : public Component {
   sensor::Sensor *temperature_sensor_{nullptr};
   sensor::Sensor *humidity_sensor_{nullptr};
   sensor::Sensor *fan_speed_sensor_{nullptr};
+  sensor::Sensor *fan_setpoint_sensor_{nullptr};
+  sensor::Sensor *fan_speed_rpm_sensor_{nullptr};
   text_sensor::TextSensor *device_type_sensor_{nullptr};
 
   // Device info
@@ -85,6 +98,16 @@ class IthoI2CComponent : public Component {
   uint8_t device_id_ = 0;
   uint8_t hw_version_ = 0;
   uint8_t fw_version_ = 0;
+
+  // Status format descriptors (from query 0x24 0x00)
+  struct StatusDescriptor {
+    uint8_t length;      // Number of bytes for this value
+    uint32_t divider;    // Divider for float conversion
+    bool is_signed;      // Whether value is signed
+    bool is_float;       // Whether to treat as float (divider != 1)
+  };
+  std::vector<StatusDescriptor> status_format_;
+  bool status_format_received_ = false;
 };
 
 // Fan platform class
