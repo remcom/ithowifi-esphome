@@ -51,11 +51,15 @@ ota:
 wifi:
   # ssid: !secret wifi_ssid
   # password: !secret wifi_password
-
+  enable_btm: True
+  enable_rrm: True
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Itho Fallback"
     password: "1234512345123"
+
+network:
+  enable_ipv6: true
 
 captive_portal:
 
