@@ -1,0 +1,8 @@
+{
+  "name": "Itho I2C Bus",
+  "codeowners": [],
+  "dependencies": [],
+  "documentation": "https://github.com/arjenhiemstra/ithowifi",
+  "iot_class": "local_polling",
+  "requirements": []
+}

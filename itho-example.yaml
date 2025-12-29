@@ -1,0 +1,196 @@
+substitutions:
+  device_name: itho-ventilation
+  friendly_name: Itho Ventilation
+
+esphome:
+  name: ${device_name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+  # platformio_options:
+  #   build_flags: -DBOARD_HAS_PSRAM
+  #   board_build.arduino.memory_type: qio_opi
+  #   board_build.f_flash: 80000000L
+  #   board_build.flash_mode: qio
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  framework:
+    type: esp-idf
+
+#use local source for external components
+# external_components:
+#   - source:
+#       type: local
+#       path: esphome/components
+#     components: [itho_i2c, itho_i2c_bus]
+
+#use git source for external components
+external_components:
+  - source:
+      type: git
+      url: https://github.com/remcom/ithowifi-esphome
+      ref: main
+    components:
+        - itho_i2c 
+        - itho_i2c_bus
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  # encryption:
+  #   key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+  # password: !secret ota_password
+
+wifi:
+  # ssid: !secret wifi_ssid
+  # password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Itho Fallback"
+    password: "1234512345123"
+
+captive_portal:
+
+# Custom Itho I2C Bus (supports master and slave modes)
+# For CVE (original hardware):
+#   SDA: GPIO21
+#   SCL: GPIO22
+# For NON-CVE hardware:
+#   SDA: GPIO27
+#   SCL: GPIO26
+itho_i2c_bus:
+  id: itho_bus
+  sda: 21
+  scl: 22
+  frequency: 100000
+
+# Itho I2C Component
+itho_i2c:
+  id: itho_device
+  bus_id: itho_bus
+  # Optional: Set custom remote ID (default is 0x00, 0x00, 0x01)
+  # remote_id: [0x12, 0x34, 0x56]
+
+  # Optional sensors
+  temperature:
+    name: "${friendly_name} Temperature"
+    id: itho_temp
+
+  humidity:
+    name: "${friendly_name} Humidity"
+    id: itho_humidity
+
+  fan_speed:
+    name: "${friendly_name} Fan Speed"
+    id: itho_speed
+
+  fan_setpoint:
+    name: "${friendly_name} Fan Setpoint"
+    id: itho_fan_setpoint
+
+  fan_speed_rpm:
+    name: "${friendly_name} Fan Speed RPM"
+    id: itho_fan_speed_rpm
+
+  selected_mode:
+    name: "${friendly_name} Selected Mode"
+    id: itho_selected_mode
+
+  selected_mode_text:
+    name: "${friendly_name} Selected Mode Text"
+    id: itho_selected_mode_text
+
+  device_type:
+    name: "${friendly_name} Device Type"
+    id: itho_type
+
+# Fan control
+fan:
+  - platform: itho_i2c
+    name: "${friendly_name} Fan"
+    id: itho_fan
+
+# Optional: Additional sensors using standard ESPHome sensors
+# If you have external temperature/humidity sensors
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} WiFi Signal"
+    update_interval: 60s
+
+  # Optional: Uptime sensor
+  - platform: uptime
+    name: "${friendly_name} Uptime"
+
+# Status LED
+status_led:
+  pin:
+    number: GPIO13
+    inverted: false
+
+# Remote command buttons
+button:
+  - platform: template
+    name: "${friendly_name} Join Remote"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_JOIN, 0);
+
+  - platform: template
+    name: "${friendly_name} Auto Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_AUTO, 0);
+
+  - platform: template
+    name: "${friendly_name} Low Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_LOW, 0);
+
+  - platform: template
+    name: "${friendly_name} Medium Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_MEDIUM, 0);
+
+  - platform: template
+    name: "${friendly_name} High Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_HIGH, 0);
+
+  # Device query buttons
+  - platform: template
+    name: "${friendly_name} Query Device Type"
+    on_press:
+      - lambda: |-
+          id(itho_device).query_device_type();
+
+  - platform: template
+    name: "${friendly_name} Query Status"
+    on_press:
+      - lambda: |-
+          id(itho_device).query_status();
+
+  - platform: template
+    name: "${friendly_name} Query Measurements"
+    on_press:
+      - lambda: |-
+          id(itho_device).query_measurements();
+
+# Text sensor for device info
+text_sensor:
+  - platform: version
+    name: "${friendly_name} ESPHome Version"
+
+  - platform: wifi_info
+    ip_address:
+      name: "${friendly_name} IP Address"
