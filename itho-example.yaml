@@ -93,6 +93,10 @@ itho_i2c:
     name: "${friendly_name} Selected Mode"
     id: itho_selected_mode
 
+  selected_mode_text:
+    name: "${friendly_name} Selected Mode Text"
+    id: itho_selected_mode_text
+
   device_type:
     name: "${friendly_name} Device Type"
     id: itho_type

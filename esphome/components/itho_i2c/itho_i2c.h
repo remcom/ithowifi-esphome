@@ -55,6 +55,7 @@ class IthoI2CComponent : public Component {
   void set_fan_setpoint_sensor(sensor::Sensor *sensor) { this->fan_setpoint_sensor_ = sensor; }
   void set_fan_speed_rpm_sensor(sensor::Sensor *sensor) { this->fan_speed_rpm_sensor_ = sensor; }
   void set_selected_mode_sensor(sensor::Sensor *sensor) { this->selected_mode_sensor_ = sensor; }
+  void set_selected_mode_text_sensor(text_sensor::TextSensor *sensor) { this->selected_mode_text_sensor_ = sensor; }
   void set_device_type_sensor(text_sensor::TextSensor *sensor) { this->device_type_sensor_ = sensor; }
 
   // Configuration
@@ -93,6 +94,7 @@ class IthoI2CComponent : public Component {
   sensor::Sensor *fan_setpoint_sensor_{nullptr};
   sensor::Sensor *fan_speed_rpm_sensor_{nullptr};
   sensor::Sensor *selected_mode_sensor_{nullptr};
+  text_sensor::TextSensor *selected_mode_text_sensor_{nullptr};
   text_sensor::TextSensor *device_type_sensor_{nullptr};
 
   // Device info

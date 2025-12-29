@@ -561,9 +561,32 @@ void IthoI2CComponent::query_status() {
           }
         } else if (i == 4) {
           // Selected mode (index 4)
-          ESP_LOGI(TAG, "  [4] Selected mode: %d", signed_value);
+          // Decode mode value to text based on Itho CVE command bytes
+          // These values match the command byte values in remote commands
+          const char *mode_text = "Unknown";
+          switch (signed_value) {
+            case 0: mode_text = "Standby"; break;
+            case 1: mode_text = "Away"; break;      // 0x01 in command
+            case 2: mode_text = "Low"; break;       // 0x02 in command
+            case 3: mode_text = "Medium"; break;    // 0x03 in command
+            case 4: mode_text = "High"; break;      // 0x04 in command
+            case 5: mode_text = "Auto"; break;      // 0x05 in command (RV/CO2)
+            case 6: mode_text = "Timer1"; break;
+            case 7: mode_text = "Timer2"; break;
+            case 8: mode_text = "Timer3"; break;
+            case 9: mode_text = "AutoNight"; break;
+            default:
+              mode_text = "Unknown";
+              break;
+          }
+
+          ESP_LOGI(TAG, "  [4] Selected mode: %d (%s)", signed_value, mode_text);
+
           if (this->selected_mode_sensor_ != nullptr) {
             this->selected_mode_sensor_->publish_state(signed_value);
+          }
+          if (this->selected_mode_text_sensor_ != nullptr) {
+            this->selected_mode_text_sensor_->publish_state(mode_text);
           }
         } else if (i == 10) {
           // Humidity (index 10 for your device)
