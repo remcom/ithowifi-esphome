@@ -230,6 +230,46 @@ bool IthoI2CBus::write_and_release(uint8_t address, const uint8_t *data, size_t 
 #endif
 }
 
+bool IthoI2CBus::write_raw(const uint8_t *data, size_t len) {
+#ifdef USE_ESP32
+  if (!this->ensure_master_mode()) {
+    ESP_LOGE(TAG, "Master mode not initialized");
+    return false;
+  }
+
+  ESP_LOGD(TAG, "Writing %d raw bytes to I2C bus", len);
+  ESP_LOGV(TAG, "Raw data: %s", format_hex_pretty(data, len).c_str());
+
+  // Like original i2c_master_send - write entire buffer as-is
+  // The first byte (0x82) is part of the I2C protocol on the wire
+  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+  i2c_master_start(cmd);
+  i2c_master_write(cmd, data, len, true);
+  i2c_master_stop(cmd);
+
+  esp_err_t err = i2c_master_cmd_begin(this->i2c_port_, cmd, pdMS_TO_TICKS(200));
+  i2c_cmd_link_delete(cmd);
+
+  if (err != ESP_OK) {
+    const char *err_name = "UNKNOWN";
+    if (err == ESP_ERR_TIMEOUT) err_name = "TIMEOUT";
+    else if (err == ESP_FAIL) err_name = "NACK";
+    else if (err == ESP_ERR_INVALID_STATE) err_name = "INVALID_STATE";
+
+    ESP_LOGW(TAG, "I2C raw write failed: %s (0x%X)", err_name, err);
+    return false;
+  }
+
+  // Deinitialize master after sending remote command
+  ESP_LOGD(TAG, "I2C raw write successful, releasing master mode");
+  this->deinit_master();
+
+  return true;
+#else
+  return false;
+#endif
+}
+
 bool IthoI2CBus::read(uint8_t address, uint8_t *data, size_t len) {
 #ifdef USE_ESP32
   if (!this->ensure_master_mode()) {

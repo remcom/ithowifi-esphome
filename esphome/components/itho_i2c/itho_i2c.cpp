@@ -172,6 +172,7 @@ size_t IthoI2CComponent::read_i2c_slave_response(uint8_t *data, size_t max_size)
 }
 
 void IthoI2CComponent::set_pwm_speed(uint16_t value) {
+  // PWM command for manual fan speed control
   // Command structure for PWM control
   // {0x00, 0x60, 0xC0, 0x20, 0x01, 0x02, 0xFF, 0x00, 0xFF}
   uint8_t command[9] = {
@@ -201,50 +202,134 @@ void IthoI2CComponent::set_pwm_speed(uint16_t value) {
 }
 
 void IthoI2CComponent::send_remote_command(IthoCommand command, uint8_t remote_index) {
-  // Remote command structure (simplified version)
-  // Based on sendRemoteCmd from original code
-  // [I2C addr ][  I2C command   ][len ][    timestamp         ][fmt ][    remote ID   ][cntr][opcode...][chk]
+  // Remote command structure from original sendRemoteCmd in IthoSystem.cpp:620-780
+  // [I2C addr][I2C cmd][len][timestamp][fmt][remote ID][cntr]<opcode><len2><command>[chk2][cntr][chk]
 
   uint8_t i2c_command[64] = {0};
+  uint8_t i2c_command_len = 0;
 
-  // I2C header
-  i2c_command[0] = I2C_ADDR_WRITE;  // 0x82
-  i2c_command[1] = 0x60;
-  i2c_command[2] = 0xC1;
-  i2c_command[3] = 0x01;
-  i2c_command[4] = 0x01;
-  i2c_command[5] = 0x09;  // Length
+  // I2C header - first 15 bytes
+  i2c_command[i2c_command_len++] = I2C_ADDR_WRITE;  // 0x82
+  i2c_command[i2c_command_len++] = 0x60;
+  i2c_command[i2c_command_len++] = 0xC1;
+  i2c_command[i2c_command_len++] = 0x01;
+  i2c_command[i2c_command_len++] = 0x01;
+  i2c_command[i2c_command_len++] = 0x09;  // Length - will be updated later
 
-  // Timestamp (use millis())
+  // Timestamp (4 bytes)
   uint32_t timestamp = millis();
-  i2c_command[6] = (timestamp >> 24) & 0xFF;
-  i2c_command[7] = (timestamp >> 16) & 0xFF;
-  i2c_command[8] = (timestamp >> 8) & 0xFF;
-  i2c_command[9] = timestamp & 0xFF;
+  i2c_command[i2c_command_len++] = (timestamp >> 24) & 0xFF;
+  i2c_command[i2c_command_len++] = (timestamp >> 16) & 0xFF;
+  i2c_command[i2c_command_len++] = (timestamp >> 8) & 0xFF;
+  i2c_command[i2c_command_len++] = timestamp & 0xFF;
 
   // Format
-  i2c_command[10] = 0x16;
+  i2c_command[i2c_command_len++] = 0x16;
 
-  // Remote ID
-  i2c_command[11] = this->remote_id_[0];
-  i2c_command[12] = this->remote_id_[1];
-  i2c_command[13] = this->remote_id_[2];
+  // Remote ID (3 bytes)
+  i2c_command[i2c_command_len++] = this->remote_id_[0];
+  i2c_command[i2c_command_len++] = this->remote_id_[1];
+  i2c_command[i2c_command_len++] = this->remote_id_[2];
 
   // Counter
-  i2c_command[14] = this->cmd_counter_++;
+  i2c_command[i2c_command_len++] = this->cmd_counter_++;
 
-  // Command opcodes (simplified - would need full remote command data)
-  // This is a placeholder - you would need to implement the full remote command structure
-  // based on the RemoteTypes and command data from the original code
+  // Command bytes structure: <opcode 2 bytes><len 1 byte><command len bytes>
+  // From IthoPacket.h
+  const uint8_t *cmd_bytes = nullptr;
+  uint8_t cmd_bytes_len = 0;
 
-  uint8_t cmd_len = 15;  // Base length, would be extended with actual command data
+  // CVE remote command bytes (from IthoPacket.h)
+  static const uint8_t join_cmd[] = {0x1F, 0xC9, 0x0C, 0x00, 0x22, 0xF1, 0x00, 0x00, 0x00, 0x01, 0x10, 0xE0, 0x00, 0x00, 0x00};
+  static const uint8_t leave_cmd[] = {0x1F, 0xC9, 0x06, 0x00, 0x1F, 0xC9, 0x00, 0x00, 0x00};
+  static const uint8_t away_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x01, 0x04};  // Away = very low speed
+  static const uint8_t low_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x02, 0x04};
+  static const uint8_t medium_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x03, 0x04};
+  static const uint8_t high_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x04, 0x04};
+  static const uint8_t rv_co2_auto_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x05, 0x07};
 
-  // Checksum
-  i2c_command[cmd_len] = this->calculate_checksum(i2c_command, cmd_len);
-  cmd_len++;
+  switch (command) {
+    case ITHO_JOIN:
+      cmd_bytes = join_cmd;
+      cmd_bytes_len = sizeof(join_cmd);
+      break;
+    case ITHO_LEAVE:
+      cmd_bytes = leave_cmd;
+      cmd_bytes_len = sizeof(leave_cmd);
+      break;
+    case ITHO_LOW:
+      cmd_bytes = low_cmd;
+      cmd_bytes_len = sizeof(low_cmd);
+      break;
+    case ITHO_MEDIUM:
+      cmd_bytes = medium_cmd;
+      cmd_bytes_len = sizeof(medium_cmd);
+      break;
+    case ITHO_HIGH:
+      cmd_bytes = high_cmd;
+      cmd_bytes_len = sizeof(high_cmd);
+      break;
+    case ITHO_AUTO:
+      cmd_bytes = rv_co2_auto_cmd;
+      cmd_bytes_len = sizeof(rv_co2_auto_cmd);
+      break;
+    default:
+      ESP_LOGW(TAG, "Command %d not implemented", command);
+      return;
+  }
 
-  if (this->send_i2c_bytes(i2c_command, cmd_len)) {
-    ESP_LOGI(TAG, "Sent remote command: %d", command);
+  // Copy command bytes (includes opcode, len, and command data)
+  // From original: for (int i = 0; i < 2 + command_len + 1; i++)
+  uint8_t command_data_len = cmd_bytes[2];  // Length byte is at position 2
+  for (uint8_t i = 0; i < 2 + command_data_len + 1; i++) {
+    i2c_command[i2c_command_len] = cmd_bytes[i];
+
+    // Special handling for Join/Leave commands: insert device ID at specific positions
+    // From original lines 675-682: command bytes locations with ID in Join/Leave messages: 6/7/8 12/13/14 18/19/20 etc
+    if (i > 5 && (command == ITHO_JOIN || command == ITHO_LEAVE)) {
+      if (i % 6 == 0 || i % 6 == 1 || i % 6 == 2) {
+        i2c_command[i2c_command_len] = this->remote_id_[i % 6];
+      }
+    }
+
+    i2c_command_len++;
+  }
+
+  // Calculate chk2 - checksum of [fmt]+[remote ID]+[cntr]+[remote command]
+  // From original line 761: checksum(i2c_command_tmp, i2c_command_len - 11)
+  // where i2c_command_tmp starts at position 10
+  uint8_t i2c_command_tmp[64] = {0};
+  for (uint8_t i = 10; i < i2c_command_len; i++) {
+    i2c_command_tmp[i - 10] = i2c_command[i];
+  }
+  i2c_command[i2c_command_len++] = this->calculate_checksum(i2c_command_tmp, i2c_command_len - 11);
+
+  // Counter (set to 0 in original)
+  i2c_command[i2c_command_len++] = 0x00;
+
+  // Set length field (byte 5) - total length minus header (6 bytes)
+  i2c_command[5] = i2c_command_len - 6;
+
+  // Calculate final checksum - checksum of entire command
+  i2c_command[i2c_command_len++] = this->calculate_checksum(i2c_command, i2c_command_len - 1);
+
+  ESP_LOGI(TAG, "Sending remote command %d (%d bytes)", command, i2c_command_len);
+  ESP_LOGI(TAG, "Command bytes: %s", format_hex_pretty(i2c_command, i2c_command_len).c_str());
+
+  // Remote commands need to be sent as raw bytes (like original i2c_master_send)
+  // The 0x82 is part of the I2C protocol on the wire
+  if (this->bus_ == nullptr) {
+    ESP_LOGE(TAG, "I2C bus not configured");
+    return;
+  }
+
+  // Send as raw I2C data without address extraction
+  bool success = this->bus_->write_raw(i2c_command, i2c_command_len);
+
+  if (success) {
+    ESP_LOGI(TAG, "Sent remote command %d successfully", command);
+  } else {
+    ESP_LOGW(TAG, "Failed to send remote command %d", command);
   }
 }
 
@@ -473,6 +558,12 @@ void IthoI2CComponent::query_status() {
             float speed_percent = (signed_value * 100.0f) / 1200.0f;
             if (speed_percent > 100.0f) speed_percent = 100.0f;
             this->fan_speed_sensor_->publish_state(speed_percent);
+          }
+        } else if (i == 4) {
+          // Selected mode (index 4)
+          ESP_LOGI(TAG, "  [4] Selected mode: %d", signed_value);
+          if (this->selected_mode_sensor_ != nullptr) {
+            this->selected_mode_sensor_->publish_state(signed_value);
           }
         } else if (i == 10) {
           // Humidity (index 10 for your device)

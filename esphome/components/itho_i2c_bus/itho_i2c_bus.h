@@ -29,6 +29,10 @@ class IthoI2CBus : public Component {
   /// This allows the Itho device to respond as master to our slave
   bool write_and_release(uint8_t address, const uint8_t *data, size_t len);
 
+  /// Write raw I2C data without address extraction - for remote commands
+  /// Sends the entire buffer as-is to the I2C bus (first byte is part of the protocol)
+  bool write_raw(const uint8_t *data, size_t len);
+
   /// Read data from I2C device (master mode)
   bool read(uint8_t address, uint8_t *data, size_t len);
 

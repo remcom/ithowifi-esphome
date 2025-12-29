@@ -19,6 +19,7 @@ AUTO_LOAD = ["sensor", "text_sensor"]
 CONF_FAN_SPEED = "fan_speed"
 CONF_FAN_SETPOINT = "fan_setpoint"
 CONF_FAN_SPEED_RPM = "fan_speed_rpm"
+CONF_SELECTED_MODE = "selected_mode"
 CONF_DEVICE_TYPE = "device_type"
 CONF_REMOTE_ID = "remote_id"
 CONF_BUS_ID = "bus_id"
@@ -74,6 +75,10 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
+            cv.Optional(CONF_SELECTED_MODE): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
             cv.Optional(CONF_DEVICE_TYPE): text_sensor.text_sensor_schema(),
             cv.Optional(CONF_REMOTE_ID): cv.All(
                 cv.ensure_list(cv.hex_uint8_t), cv.Length(min=3, max=3)
@@ -111,6 +116,10 @@ async def to_code(config):
     if CONF_FAN_SPEED_RPM in config:
         sens = await sensor.new_sensor(config[CONF_FAN_SPEED_RPM])
         cg.add(var.set_fan_speed_rpm_sensor(sens))
+
+    if CONF_SELECTED_MODE in config:
+        sens = await sensor.new_sensor(config[CONF_SELECTED_MODE])
+        cg.add(var.set_selected_mode_sensor(sens))
 
     if CONF_DEVICE_TYPE in config:
         sens = await text_sensor.new_text_sensor(config[CONF_DEVICE_TYPE])

@@ -89,6 +89,10 @@ itho_i2c:
     name: "${friendly_name} Fan Speed RPM"
     id: itho_fan_speed_rpm
 
+  selected_mode:
+    name: "${friendly_name} Selected Mode"
+    id: itho_selected_mode
+
   device_type:
     name: "${friendly_name} Device Type"
     id: itho_type
@@ -116,31 +120,37 @@ status_led:
     number: GPIO13
     inverted: false
 
-# Optional: Buttons for preset speeds
+# Remote command buttons
 button:
   - platform: template
-    name: "${friendly_name} Low Speed"
+    name: "${friendly_name} Join Remote"
     on_press:
       - lambda: |-
-          id(itho_device).set_speed(25);
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_JOIN, 0);
 
   - platform: template
-    name: "${friendly_name} Medium Speed"
+    name: "${friendly_name} Auto Mode"
     on_press:
       - lambda: |-
-          id(itho_device).set_speed(50);
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_AUTO, 0);
 
   - platform: template
-    name: "${friendly_name} High Speed"
+    name: "${friendly_name} Low Mode"
     on_press:
       - lambda: |-
-          id(itho_device).set_speed(75);
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_LOW, 0);
 
   - platform: template
-    name: "${friendly_name} Full Speed"
+    name: "${friendly_name} Medium Mode"
     on_press:
       - lambda: |-
-          id(itho_device).set_speed(100);
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_MEDIUM, 0);
+
+  - platform: template
+    name: "${friendly_name} High Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_HIGH, 0);
 
   # Device query buttons
   - platform: template
