@@ -76,6 +76,10 @@ cc1101:
   gdo0_pin: GPIO4
   # Optional: Adjust frequency if needed (default is 868.299805 MHz for EU)
   frequency: 868.299805MHz
+  on_packet:
+    then:
+      - lambda: |-
+          ESP_LOGD("cc1101", "packet %s rssi %.1f dBm lqi %u", format_hex(x).c_str(), rssi, lqi);
 
 # Custom Itho I2C Bus (supports master and slave modes)
 # For CVE (original hardware):
