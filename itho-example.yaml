@@ -1,0 +1,157 @@
+substitutions:
+  device_name: itho-ventilation
+  friendly_name: Itho Ventilation
+
+esphome:
+  name: ${device_name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+  # platformio_options:
+  #   build_flags: -DBOARD_HAS_PSRAM
+  #   board_build.arduino.memory_type: qio_opi
+  #   board_build.f_flash: 80000000L
+  #   board_build.flash_mode: qio
+
+esp32:
+  board: esp32dev
+  variant: esp32
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: esphome/components
+    components: [itho_i2c, itho_i2c_bus]
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  # encryption:
+  #   key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+  # password: !secret ota_password
+
+wifi:
+  # ssid: !secret wifi_ssid
+  # password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Itho Fallback"
+    password: "1234512345123"
+
+captive_portal:
+
+# Custom Itho I2C Bus (supports master and slave modes)
+# For CVE (original hardware):
+#   SDA: GPIO21
+#   SCL: GPIO22
+# For NON-CVE hardware:
+#   SDA: GPIO27
+#   SCL: GPIO26
+itho_i2c_bus:
+  id: itho_bus
+  sda: 21
+  scl: 22
+  frequency: 100000
+
+# Itho I2C Component
+itho_i2c:
+  id: itho_device
+  bus_id: itho_bus
+  # Optional: Set custom remote ID (default is 0x00, 0x00, 0x01)
+  # remote_id: [0x12, 0x34, 0x56]
+
+  # Optional sensors
+  temperature:
+    name: "${friendly_name} Temperature"
+    id: itho_temp
+
+  humidity:
+    name: "${friendly_name} Humidity"
+    id: itho_humidity
+
+  fan_speed:
+    name: "${friendly_name} Fan Speed"
+    id: itho_speed
+
+  device_type:
+    name: "${friendly_name} Device Type"
+    id: itho_type
+
+# Fan control
+fan:
+  - platform: itho_i2c
+    name: "${friendly_name} Fan"
+    id: itho_fan
+
+# Optional: Additional sensors using standard ESPHome sensors
+# If you have external temperature/humidity sensors
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} WiFi Signal"
+    update_interval: 60s
+
+  # Optional: Uptime sensor
+  - platform: uptime
+    name: "${friendly_name} Uptime"
+
+# Status LED
+status_led:
+  pin:
+    number: GPIO13
+    inverted: false
+
+# Optional: Buttons for preset speeds
+button:
+  - platform: template
+    name: "${friendly_name} Low Speed"
+    on_press:
+      - lambda: |-
+          id(itho_device).set_speed(25);
+
+  - platform: template
+    name: "${friendly_name} Medium Speed"
+    on_press:
+      - lambda: |-
+          id(itho_device).set_speed(50);
+
+  - platform: template
+    name: "${friendly_name} High Speed"
+    on_press:
+      - lambda: |-
+          id(itho_device).set_speed(75);
+
+  - platform: template
+    name: "${friendly_name} Full Speed"
+    on_press:
+      - lambda: |-
+          id(itho_device).set_speed(100);
+
+  # Device query buttons
+  - platform: template
+    name: "${friendly_name} Query Device Type"
+    on_press:
+      - lambda: |-
+          id(itho_device).query_device_type();
+
+  - platform: template
+    name: "${friendly_name} Query Status"
+    on_press:
+      - lambda: |-
+          id(itho_device).query_status();
+
+# Text sensor for device info
+text_sensor:
+  - platform: version
+    name: "${friendly_name} ESPHome Version"
+
+  - platform: wifi_info
+    ip_address:
+      name: "${friendly_name} IP Address"

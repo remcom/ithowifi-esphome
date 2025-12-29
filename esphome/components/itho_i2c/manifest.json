@@ -1,0 +1,10 @@
+{
+  "name": "Itho I2C",
+  "description": "I2C communication component for Itho ventilation units (CVE, HRU series)",
+  "version": "1.0.0",
+  "authors": ["Based on ithowifi project by Arjen Hiemstra"],
+  "requirements": ["i2c"],
+  "dependencies": [],
+  "codeowners": [],
+  "documentation": "https://github.com/arjenhiemstra/ithowifi"
+}
