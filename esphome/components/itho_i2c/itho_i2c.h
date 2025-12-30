@@ -11,19 +11,21 @@ namespace esphome {
 namespace itho_i2c {
 
 enum IthoCommand {
-  ITHO_LOW = 0,
-  ITHO_MEDIUM = 1,
-  ITHO_HIGH = 2,
-  ITHO_FULL = 3,
-  ITHO_TIMER1 = 4,
-  ITHO_TIMER2 = 5,
-  ITHO_TIMER3 = 6,
-  ITHO_JOIN = 7,
-  ITHO_LEAVE = 8,
+  ITHO_STANDBY = 0,
+  ITHO_AWAY = 1,
+  ITHO_LOW = 2,
+  ITHO_MEDIUM = 3,
+  ITHO_HIGH = 4,
+  ITHO_FULL = 5,
+  ITHO_TIMER1 = 6,
+  ITHO_TIMER2 = 7,
+  ITHO_TIMER3 = 8,
   ITHO_AUTO = 9,
   ITHO_AUTONIGHT = 10,
-  ITHO_COOK30 = 11,
-  ITHO_COOK60 = 12,
+  ITHO_JOIN = 11,
+  ITHO_LEAVE = 12,
+  ITHO_COOK30 = 13,
+  ITHO_COOK60 = 14,
 };
 
 class IthoI2CComponent : public Component {

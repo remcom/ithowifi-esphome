@@ -24,6 +24,9 @@ esp32:
 #       type: local
 #       path: esphome/components
 #     components: [itho_i2c, itho_i2c_bus]
+# Enable Bluetooth for Improv (WiFi provisioning via BLE)
+esp32_improv:
+  authorizer: none  # No button required - always allow provisioning
 
 #use git source for external components
 external_components:
@@ -72,7 +75,9 @@ spi:
 # CC1101 Radio for RF remote control
 # This enables receiving and sending RF commands from/to Itho remotes
 cc1101:
-  cs_pin: GPIO5
+  cs_pin:
+    number: GPIO5
+    ignore_strapping_warning: true
   gdo0_pin: GPIO4
   # Optional: Adjust frequency if needed (default is 868.299805 MHz for EU)
   frequency: 868.299805MHz
@@ -211,21 +216,63 @@ button:
       - lambda: |-
           id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_HIGH, 0);
 
-  # Device query buttons
+  - platform: template
+    name: "${friendly_name} Standby Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_STANDBY, 0);
+
+  - platform: template
+    name: "${friendly_name} Away Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_AWAY, 0);
+
+  - platform: template
+    name: "${friendly_name} Auto Night Mode"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_AUTONIGHT, 0);
+
+  - platform: template
+    name: "${friendly_name} Timer 1 (10 min)"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_TIMER1, 0);
+
+  - platform: template
+    name: "${friendly_name} Timer 2 (20 min)"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_TIMER2, 0);
+
+  - platform: template
+    name: "${friendly_name} Timer 3 (30 min)"
+    on_press:
+      - lambda: |-
+          id(itho_device).send_remote_command(esphome::itho_i2c::ITHO_TIMER3, 0);
+
+  # Device query buttons (disabled by default - advanced use only)
   - platform: template
     name: "${friendly_name} Query Device Type"
+    entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: |-
           id(itho_device).query_device_type();
 
   - platform: template
     name: "${friendly_name} Query Status"
+    entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: |-
           id(itho_device).query_status();
 
   - platform: template
     name: "${friendly_name} Query Measurements"
+    entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: |-
           id(itho_device).query_measurements();

@@ -242,20 +242,25 @@ void IthoI2CComponent::send_remote_command(IthoCommand command, uint8_t remote_i
   // CVE remote command bytes (from IthoPacket.h)
   static const uint8_t join_cmd[] = {0x1F, 0xC9, 0x0C, 0x00, 0x22, 0xF1, 0x00, 0x00, 0x00, 0x01, 0x10, 0xE0, 0x00, 0x00, 0x00};
   static const uint8_t leave_cmd[] = {0x1F, 0xC9, 0x06, 0x00, 0x1F, 0xC9, 0x00, 0x00, 0x00};
-  static const uint8_t away_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x01, 0x04};  // Away = very low speed
+  static const uint8_t standby_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x00, 0x04};  // Standby (same as low but 0x00)
+  static const uint8_t away_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x01, 0x04};    // Away = very low speed
   static const uint8_t low_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x02, 0x04};
   static const uint8_t medium_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x03, 0x04};
   static const uint8_t high_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x04, 0x04};
-  static const uint8_t rv_co2_auto_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x05, 0x07};
+  static const uint8_t timer1_cmd[] = {0x22, 0xF3, 0x03, 0x00, 0x00, 0x0A};  // 10 minutes high speed
+  static const uint8_t timer2_cmd[] = {0x22, 0xF3, 0x03, 0x00, 0x00, 0x14};  // 20 minutes high speed
+  static const uint8_t timer3_cmd[] = {0x22, 0xF3, 0x03, 0x00, 0x00, 0x1E};  // 30 minutes high speed
+  static const uint8_t rv_co2_auto_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x05, 0x07};  // Auto RH/CO2
+  static const uint8_t autonight_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x09, 0x08};    // Auto night mode
 
   switch (command) {
-    case ITHO_JOIN:
-      cmd_bytes = join_cmd;
-      cmd_bytes_len = sizeof(join_cmd);
+    case ITHO_STANDBY:
+      cmd_bytes = standby_cmd;
+      cmd_bytes_len = sizeof(standby_cmd);
       break;
-    case ITHO_LEAVE:
-      cmd_bytes = leave_cmd;
-      cmd_bytes_len = sizeof(leave_cmd);
+    case ITHO_AWAY:
+      cmd_bytes = away_cmd;
+      cmd_bytes_len = sizeof(away_cmd);
       break;
     case ITHO_LOW:
       cmd_bytes = low_cmd;
@@ -269,9 +274,33 @@ void IthoI2CComponent::send_remote_command(IthoCommand command, uint8_t remote_i
       cmd_bytes = high_cmd;
       cmd_bytes_len = sizeof(high_cmd);
       break;
+    case ITHO_TIMER1:
+      cmd_bytes = timer1_cmd;
+      cmd_bytes_len = sizeof(timer1_cmd);
+      break;
+    case ITHO_TIMER2:
+      cmd_bytes = timer2_cmd;
+      cmd_bytes_len = sizeof(timer2_cmd);
+      break;
+    case ITHO_TIMER3:
+      cmd_bytes = timer3_cmd;
+      cmd_bytes_len = sizeof(timer3_cmd);
+      break;
     case ITHO_AUTO:
       cmd_bytes = rv_co2_auto_cmd;
       cmd_bytes_len = sizeof(rv_co2_auto_cmd);
+      break;
+    case ITHO_AUTONIGHT:
+      cmd_bytes = autonight_cmd;
+      cmd_bytes_len = sizeof(autonight_cmd);
+      break;
+    case ITHO_JOIN:
+      cmd_bytes = join_cmd;
+      cmd_bytes_len = sizeof(join_cmd);
+      break;
+    case ITHO_LEAVE:
+      cmd_bytes = leave_cmd;
+      cmd_bytes_len = sizeof(leave_cmd);
       break;
     default:
       ESP_LOGW(TAG, "Command %d not implemented", command);
