@@ -115,9 +115,9 @@ itho_i2c:
     name: "${friendly_name} Humidity"
     id: itho_humidity
 
-  fan_speed:
-    name: "${friendly_name} Fan Speed"
-    id: itho_speed
+  # fan_speed:
+  #   name: "${friendly_name} Fan Speed"
+  #   id: itho_speed
 
   fan_setpoint:
     name: "${friendly_name} Fan Setpoint"
