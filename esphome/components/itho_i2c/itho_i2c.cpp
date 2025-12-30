@@ -590,20 +590,21 @@ void IthoI2CComponent::query_status() {
           }
         } else if (i == 4) {
           // Selected mode (index 4)
-          // Decode mode value to text based on Itho CVE command bytes
-          // These values match the command byte values in remote commands
+          // Status value mapping (verified with CVE ECO 2):
+          // Note: Medium command also shows as Auto (value 7) - this is expected behavior
           const char *mode_text = "Unknown";
           switch (signed_value) {
             case 0: mode_text = "Standby"; break;
-            case 1: mode_text = "Away"; break;      // 0x01 in command
-            case 2: mode_text = "Low"; break;       // 0x02 in command
-            case 3: mode_text = "Medium"; break;    // 0x03 in command
-            case 4: mode_text = "High"; break;      // 0x04 in command
-            case 5: mode_text = "Auto"; break;      // 0x05 in command (RV/CO2)
-            case 6: mode_text = "Timer1"; break;
-            case 7: mode_text = "Timer2"; break;
-            case 8: mode_text = "Timer3"; break;
-            case 9: mode_text = "AutoNight"; break;
+            case 1: mode_text = "?"; break;
+            case 2: mode_text = "Low"; break;
+            case 3: mode_text = "?"; break;
+            case 4: mode_text = "High"; break;
+            case 5: mode_text = "Timer1"; break;
+            case 6: mode_text = "Timer2"; break;
+            case 7: mode_text = "Auto"; break;  // Medium also shows as Auto
+            case 8: mode_text = "AutoNight"; break;
+            case 9: mode_text = "Timer3"; break;
+            case 254: mode_text = "Away"; break;
             default:
               mode_text = "Unknown";
               break;

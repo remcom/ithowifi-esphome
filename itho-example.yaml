@@ -149,14 +149,6 @@ itho_i2c:
     name: "${friendly_name} Total Operation"
     id: itho_total_operation
 
-  highest_co2:
-    name: "${friendly_name} Highest CO2"
-    id: itho_highest_co2
-
-  valve:
-    name: "${friendly_name} Valve Position"
-    id: itho_valve
-
   device_type:
     name: "${friendly_name} Device Type"
     id: itho_type
