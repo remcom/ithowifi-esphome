@@ -242,20 +242,25 @@ void IthoI2CComponent::send_remote_command(IthoCommand command, uint8_t remote_i
   // CVE remote command bytes (from IthoPacket.h)
   static const uint8_t join_cmd[] = {0x1F, 0xC9, 0x0C, 0x00, 0x22, 0xF1, 0x00, 0x00, 0x00, 0x01, 0x10, 0xE0, 0x00, 0x00, 0x00};
   static const uint8_t leave_cmd[] = {0x1F, 0xC9, 0x06, 0x00, 0x1F, 0xC9, 0x00, 0x00, 0x00};
-  static const uint8_t away_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x01, 0x04};  // Away = very low speed
+  static const uint8_t standby_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x00, 0x04};  // Standby (same as low but 0x00)
+  static const uint8_t away_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x01, 0x04};    // Away = very low speed
   static const uint8_t low_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x02, 0x04};
   static const uint8_t medium_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x03, 0x04};
   static const uint8_t high_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x04, 0x04};
-  static const uint8_t rv_co2_auto_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x05, 0x07};
+  static const uint8_t timer1_cmd[] = {0x22, 0xF3, 0x03, 0x00, 0x00, 0x0A};  // 10 minutes high speed
+  static const uint8_t timer2_cmd[] = {0x22, 0xF3, 0x03, 0x00, 0x00, 0x14};  // 20 minutes high speed
+  static const uint8_t timer3_cmd[] = {0x22, 0xF3, 0x03, 0x00, 0x00, 0x1E};  // 30 minutes high speed
+  static const uint8_t rv_co2_auto_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x05, 0x07};  // Auto RH/CO2
+  static const uint8_t autonight_cmd[] = {0x22, 0xF1, 0x03, 0x00, 0x09, 0x08};    // Auto night mode
 
   switch (command) {
-    case ITHO_JOIN:
-      cmd_bytes = join_cmd;
-      cmd_bytes_len = sizeof(join_cmd);
+    case ITHO_STANDBY:
+      cmd_bytes = standby_cmd;
+      cmd_bytes_len = sizeof(standby_cmd);
       break;
-    case ITHO_LEAVE:
-      cmd_bytes = leave_cmd;
-      cmd_bytes_len = sizeof(leave_cmd);
+    case ITHO_AWAY:
+      cmd_bytes = away_cmd;
+      cmd_bytes_len = sizeof(away_cmd);
       break;
     case ITHO_LOW:
       cmd_bytes = low_cmd;
@@ -269,9 +274,33 @@ void IthoI2CComponent::send_remote_command(IthoCommand command, uint8_t remote_i
       cmd_bytes = high_cmd;
       cmd_bytes_len = sizeof(high_cmd);
       break;
+    case ITHO_TIMER1:
+      cmd_bytes = timer1_cmd;
+      cmd_bytes_len = sizeof(timer1_cmd);
+      break;
+    case ITHO_TIMER2:
+      cmd_bytes = timer2_cmd;
+      cmd_bytes_len = sizeof(timer2_cmd);
+      break;
+    case ITHO_TIMER3:
+      cmd_bytes = timer3_cmd;
+      cmd_bytes_len = sizeof(timer3_cmd);
+      break;
     case ITHO_AUTO:
       cmd_bytes = rv_co2_auto_cmd;
       cmd_bytes_len = sizeof(rv_co2_auto_cmd);
+      break;
+    case ITHO_AUTONIGHT:
+      cmd_bytes = autonight_cmd;
+      cmd_bytes_len = sizeof(autonight_cmd);
+      break;
+    case ITHO_JOIN:
+      cmd_bytes = join_cmd;
+      cmd_bytes_len = sizeof(join_cmd);
+      break;
+    case ITHO_LEAVE:
+      cmd_bytes = leave_cmd;
+      cmd_bytes_len = sizeof(leave_cmd);
       break;
     default:
       ESP_LOGW(TAG, "Command %d not implemented", command);
@@ -613,6 +642,36 @@ void IthoI2CComponent::query_status() {
             if (this->temperature_sensor_ != nullptr && signed_value > -50 && signed_value < 100) {
               this->temperature_sensor_->publish_state(signed_value);
             }
+          }
+        } else if (i == 5) {
+          // Startup counter (index 5)
+          ESP_LOGI(TAG, "  [5] Startup counter: %d", signed_value);
+          if (this->startup_counter_sensor_ != nullptr) {
+            this->startup_counter_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 6) {
+          // Total operation hours (index 6)
+          ESP_LOGI(TAG, "  [6] Total operation: %d hours", signed_value);
+          if (this->total_operation_sensor_ != nullptr) {
+            this->total_operation_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 7) {
+          // Highest CO2 concentration (index 7) - usually 0 until a peak is recorded
+          ESP_LOGI(TAG, "  [7] Highest CO2: %d ppm", signed_value);
+          if (this->highest_co2_sensor_ != nullptr && signed_value >= 0 && signed_value <= 5000) {
+            this->highest_co2_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 8) {
+          // CO2 velocity / Current CO2 concentration (index 8)
+          ESP_LOGI(TAG, "  [8] CO2: %d ppm", signed_value);
+          if (this->co2_sensor_ != nullptr && signed_value >= 0 && signed_value <= 5000) {
+            this->co2_sensor_->publish_state(signed_value);
+          }
+        } else if (i == 9) {
+          // Valve position (index 9)
+          ESP_LOGI(TAG, "  [9] Valve: %d", signed_value);
+          if (this->valve_sensor_ != nullptr) {
+            this->valve_sensor_->publish_state(signed_value);
           }
         } else {
           // Log other values at debug level

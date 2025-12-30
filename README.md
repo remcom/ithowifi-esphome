@@ -20,6 +20,7 @@ This ESPHome custom component allows you to control Itho ventilation units via I
 - Remote command support (Low, Medium, High, Auto modes)
 - Fan speed monitoring (RPM and percentage)
 - Temperature and humidity sensors
+- CO2 sensor (if device has CO2 capability)
 - Status queries every 30 seconds
 - Device type detection
 - Selected mode sensor (numeric and text)
@@ -127,6 +128,7 @@ The component provides real-time monitoring:
 
 - **Temperature** - Room temperature in °C
 - **Humidity** - Room humidity in %
+- **CO2** - CO2 concentration in ppm (if device has CO2 sensor)
 - **Fan Speed RPM** - Actual fan speed
 - **Fan Setpoint** - Target fan speed
 - **Selected Mode** - Current operating mode (numeric)
@@ -170,8 +172,15 @@ For CVE ECO 2, the working indices are:
 - Index 1: Fan setpoint (RPM)
 - Index 2: Fan speed (RPM)
 - Index 4: Selected mode
-- Index 10: Humidity
-- Index 11: Temperature
+- Index 5: Startup counter
+- Index 6: Total operation (hours)
+- Index 7: Highest CO2 concentration (ppm) - peak value
+- Index 8: CO2 concentration (ppm) - current value
+- Index 9: Valve position
+- Index 10: Humidity (%)
+- Index 11: Temperature (°C)
+
+**Note:** Other Itho models may use different indices. Check your logs after uploading firmware to verify.
 
 ### PWM Speed Reverts to Auto
 

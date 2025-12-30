@@ -5,9 +5,11 @@ from esphome.const import (
     CONF_ID,
     CONF_TEMPERATURE,
     CONF_HUMIDITY,
+    DEVICE_CLASS_DURATION,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_HUMIDITY,
     STATE_CLASS_MEASUREMENT,
+    STATE_CLASS_TOTAL_INCREASING,
     UNIT_CELSIUS,
     UNIT_PERCENT,
 )
@@ -21,6 +23,11 @@ CONF_FAN_SETPOINT = "fan_setpoint"
 CONF_FAN_SPEED_RPM = "fan_speed_rpm"
 CONF_SELECTED_MODE = "selected_mode"
 CONF_SELECTED_MODE_TEXT = "selected_mode_text"
+CONF_CO2 = "co2"
+CONF_STARTUP_COUNTER = "startup_counter"
+CONF_TOTAL_OPERATION = "total_operation"
+CONF_HIGHEST_CO2 = "highest_co2"
+CONF_VALVE = "valve"
 CONF_DEVICE_TYPE = "device_type"
 CONF_REMOTE_ID = "remote_id"
 CONF_BUS_ID = "bus_id"
@@ -81,6 +88,30 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_SELECTED_MODE_TEXT): text_sensor.text_sensor_schema(),
+            cv.Optional(CONF_CO2): sensor.sensor_schema(
+                unit_of_measurement="ppm",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_STARTUP_COUNTER): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_TOTAL_INCREASING,
+            ),
+            cv.Optional(CONF_TOTAL_OPERATION): sensor.sensor_schema(
+                unit_of_measurement="h",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_TOTAL_INCREASING,
+                device_class=DEVICE_CLASS_DURATION,
+            ),
+            cv.Optional(CONF_HIGHEST_CO2): sensor.sensor_schema(
+                unit_of_measurement="ppm",
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_VALVE): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
             cv.Optional(CONF_DEVICE_TYPE): text_sensor.text_sensor_schema(),
             cv.Optional(CONF_REMOTE_ID): cv.All(
                 cv.ensure_list(cv.hex_uint8_t), cv.Length(min=3, max=3)
@@ -126,6 +157,26 @@ async def to_code(config):
     if CONF_SELECTED_MODE_TEXT in config:
         sens = await text_sensor.new_text_sensor(config[CONF_SELECTED_MODE_TEXT])
         cg.add(var.set_selected_mode_text_sensor(sens))
+
+    if CONF_CO2 in config:
+        sens = await sensor.new_sensor(config[CONF_CO2])
+        cg.add(var.set_co2_sensor(sens))
+
+    if CONF_STARTUP_COUNTER in config:
+        sens = await sensor.new_sensor(config[CONF_STARTUP_COUNTER])
+        cg.add(var.set_startup_counter_sensor(sens))
+
+    if CONF_TOTAL_OPERATION in config:
+        sens = await sensor.new_sensor(config[CONF_TOTAL_OPERATION])
+        cg.add(var.set_total_operation_sensor(sens))
+
+    if CONF_HIGHEST_CO2 in config:
+        sens = await sensor.new_sensor(config[CONF_HIGHEST_CO2])
+        cg.add(var.set_highest_co2_sensor(sens))
+
+    if CONF_VALVE in config:
+        sens = await sensor.new_sensor(config[CONF_VALVE])
+        cg.add(var.set_valve_sensor(sens))
 
     if CONF_DEVICE_TYPE in config:
         sens = await text_sensor.new_text_sensor(config[CONF_DEVICE_TYPE])
