@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> This project will not work anymore since esphome 2026.2.0. Due to nt using the device anymore no more updates will be done
+> 
+
 # Itho I2C ESPHome Custom Component
 
 > [!WARNING]
